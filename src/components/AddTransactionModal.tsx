@@ -148,8 +148,18 @@ const AddTransactionModal: React.FC<AddTransactionModalProps> = ({ cardId, onClo
           background: #fff;
           padding: 2.5rem;
           border-radius: 20px;
-          width: 500px;
+          border-radius: 20px;
+          width: 90%;
+          max-width: 500px;
           box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          max-height: 90vh; /* Prevent overflow on small screens */
+          overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .modal-content { padding: 1.5rem; }
+            .form-row { flex-direction: column; gap: 0; }
+            .btn-submit, .btn-cancel { padding: 0.8rem 1rem; }
         }
         h2 { margin-bottom: 2rem; color: #1f2937; }
         

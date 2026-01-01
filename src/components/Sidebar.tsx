@@ -2,47 +2,57 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 
 interface SidebarProps {
-    currentView: 'dashboard' | string;
-    setCurrentView: (view: 'dashboard' | string) => void;
-    setShowAddCard: (show: boolean) => void;
+  currentView: 'dashboard' | string;
+  setCurrentView: (view: 'dashboard' | string) => void;
+  setShowAddCard: (show: boolean) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, setShowAddCard }) => {
-    const { cards } = useApp();
+  const { cards } = useApp();
+  const [isOpen, setIsOpen] = React.useState(false);
 
-    return (
-        <div className="sidebar">
-            <div className="logo">
-                <h2>💳 CreditTracker</h2>
-            </div>
+  const handleNavClick = (view: string) => {
+    setCurrentView(view);
+    setIsOpen(false);
+  };
 
-            <div className="nav-menu">
-                <button
-                    className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`}
-                    onClick={() => setCurrentView('dashboard')}
-                >
-                    <span>📊</span> Dashboard
-                </button>
+  return (
+    <>
+      <button className="mobile-menu-btn" onClick={() => setIsOpen(!isOpen)}>
+        ☰
+      </button>
+      <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <div className="logo">
+          <h2>💳 CreditTracker</h2>
+        </div>
 
-                <div className="nav-section-title">MY CARDS</div>
+        <div className="nav-menu">
+          <button
+            className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`}
+            onClick={() => handleNavClick('dashboard')}
+          >
+            <span>📊</span> Dashboard
+          </button>
 
-                {cards.map(card => (
-                    <button
-                        key={card.id}
-                        className={`nav-item ${currentView === card.id ? 'active' : ''}`}
-                        onClick={() => setCurrentView(card.id)}
-                    >
-                        <span>💳</span> {card.name}
-                        <small style={{ marginLeft: 'auto', fontSize: '0.8em', opacity: 0.7 }}>{card.bank}</small>
-                    </button>
-                ))}
+          <div className="nav-section-title">MY CARDS</div>
 
-                <button className="add-card-btn" onClick={() => setShowAddCard(true)}>
-                    + Add New Card
-                </button>
-            </div>
+          {cards.map(card => (
+            <button
+              key={card.id}
+              className={`nav-item ${currentView === card.id ? 'active' : ''}`}
+              onClick={() => handleNavClick(card.id)}
+            >
+              <span>💳</span> {card.name}
+              <small style={{ marginLeft: 'auto', fontSize: '0.8em', opacity: 0.7 }}>{card.bank}</small>
+            </button>
+          ))}
 
-            <style>{`
+          <button className="add-card-btn" onClick={() => setShowAddCard(true)}>
+            + Add New Card
+          </button>
+        </div>
+
+        <style>{`
         .sidebar {
           width: 260px;
           background: #fff;
@@ -54,7 +64,36 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, setShowA
           position: fixed;
           left: 0;
           top: 0;
+          z-index: 100;
+          transition: transform 0.3s ease;
         }
+        
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 101;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            font-size: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+
         .logo {
           margin-bottom: 2rem;
           color: var(--primary-color);
@@ -105,8 +144,22 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, setShowA
           color: var(--primary-color);
         }
       `}</style>
-        </div>
-    );
+      </div>
+      {isOpen && <div className="sidebar-overlay" onClick={() => setIsOpen(false)}></div>}
+      <style>{`
+            .sidebar-overlay {
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 90;
+                display: none;
+            }
+            @media (max-width: 768px) {
+                .sidebar-overlay { display: block; }
+            }
+        `}</style>
+    </>
+  );
 };
 
 export default Sidebar;

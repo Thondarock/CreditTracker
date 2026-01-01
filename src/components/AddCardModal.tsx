@@ -122,8 +122,13 @@ const AddCardModal: React.FC<AddCardModalProps> = ({ onClose }) => {
           background: #fff;
           padding: 2rem;
           border-radius: 16px;
-          width: 400px;
+          border-radius: 16px;
+          width: 90%;
+          max-width: 400px;
           box-shadow: var(--shadow-lg);
+        }
+        @media (min-width: 768px) {
+            .modal-content { width: 400px; }
         }
         .form-group {
           margin-bottom: 1rem;

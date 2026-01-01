@@ -184,6 +184,13 @@ const CardView: React.FC<CardViewProps> = ({ cardId }) => {
           min-height: 100vh;
           background: #f8f9fa;
         }
+        @media (max-width: 768px) {
+            .view-container {
+                margin-left: 0;
+                padding: 1rem;
+                padding-top: 4rem; /* Space for hamburger */
+            }
+        }
         .card-header {
           display: flex;
           gap: 2rem;
@@ -202,6 +209,19 @@ const CardView: React.FC<CardViewProps> = ({ cardId }) => {
           position: relative;
           box-shadow: var(--shadow-lg);
           transition: transform 0.3s ease;
+          max-width: 100%; /* Ensure it fits on mobile */
+        }
+        @media (max-width: 768px) {
+            .credit-card-visual {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 1.6;
+            }
+            .card-header {
+                flex-direction: column;
+                gap: 1.5rem;
+                margin-bottom: 2rem;
+            }
         }
         .credit-card-visual:hover {
           transform: translateY(-5px);
@@ -342,6 +362,7 @@ const CardView: React.FC<CardViewProps> = ({ cardId }) => {
             background: #eef2ff;
             padding: 4px;
             border-radius: 8px;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
         }
         .tab {
             padding: 0.5rem 1rem;
@@ -359,6 +380,17 @@ const CardView: React.FC<CardViewProps> = ({ cardId }) => {
         }
 
         .search-input { width: 220px; }
+        @media (max-width: 768px) {
+            .search-input { width: 100%; margin-top: 1rem; }
+            .section-header { flex-direction: column; align-items: stretch; }
+            .tab { flex: 1; text-align: center; font-size: 0.8rem; padding: 0.5rem; }
+            .cycle-info { gap: 1rem; font-size: 0.9rem; }
+            .tx-table th, .tx-table td { padding: 0.75rem 0.5rem; font-size: 0.85rem; }
+             /* Hide less important columns on mobile */
+            .tx-table th:nth-child(2), .tx-table td:nth-child(2), /* Description */
+            .tx-table th:nth-child(4), .tx-table td:nth-child(4)  /* Spent By */
+            { display: none; }
+        }
       `}</style>
         </div>
     );
