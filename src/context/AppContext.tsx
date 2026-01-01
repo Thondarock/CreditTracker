@@ -1,6 +1,18 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { CreditCard, Transaction } from '../types';
-import { generateId } from '../utils/helpers';
+import { db } from '../firebase';
+import {
+    collection,
+    addDoc,
+    deleteDoc,
+    updateDoc,
+    doc,
+    onSnapshot,
+    query,
+    where,
+    getDocs,
+    writeBatch
+} from 'firebase/firestore';
 
 interface AppContextType {
     cards: CreditCard[];
@@ -16,93 +28,108 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    // Load initial state from LocalStorage
-    const [cards, setCards] = useState<CreditCard[]>(() => {
-        const saved = localStorage.getItem('cards');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const [cards, setCards] = useState<CreditCard[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-    const [transactions, setTransactions] = useState<Transaction[]>(() => {
-        const saved = localStorage.getItem('transactions');
-        return saved ? JSON.parse(saved) : [];
-    });
-
-    // Persist to LocalStorage
+    // Real-time Sync for Cards
     useEffect(() => {
-        localStorage.setItem('cards', JSON.stringify(cards));
-    }, [cards]);
+        const q = query(collection(db, 'cards'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const cardsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as CreditCard[];
+            setCards(cardsData);
+        });
+        return () => unsubscribe();
+    }, []);
 
+    // Real-time Sync for Transactions
     useEffect(() => {
-        localStorage.setItem('transactions', JSON.stringify(transactions));
-    }, [transactions]);
+        const q = query(collection(db, 'transactions'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const txData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as Transaction[];
+            // Sort by date descending
+            txData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            setTransactions(txData);
+        });
+        return () => unsubscribe();
+    }, []);
 
-    const addCard = (cardData: Omit<CreditCard, 'id' | 'used' | 'available'>) => {
-        const newCard: CreditCard = {
+    const addCard = async (cardData: Omit<CreditCard, 'id' | 'used' | 'available'>) => {
+        const newCard = {
             ...cardData,
-            id: generateId(),
             used: 0,
             available: cardData.limit,
         };
-        setCards([...cards, newCard]);
+        await addDoc(collection(db, 'cards'), newCard);
     };
 
-    const deleteCard = (id: string) => {
-        setCards(cards.filter(c => c.id !== id));
-        setTransactions(transactions.filter(t => t.cardId !== id));
+    const deleteCard = async (id: string) => {
+        // Delete the card
+        await deleteDoc(doc(db, 'cards', id));
+
+        // Delete all associated transactions
+        const q = query(collection(db, 'transactions'), where('cardId', '==', id));
+        const snapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
     };
 
-    const addTransaction = (txData: Omit<Transaction, 'id' | 'date'> & { date?: string }) => {
-        const newTx: Transaction = {
+    const addTransaction = async (txData: Omit<Transaction, 'id' | 'date'> & { date?: string }) => {
+        const newTx = {
             ...txData,
-            id: generateId(),
             date: txData.date || new Date().toISOString(),
         };
 
-        setTransactions([newTx, ...transactions]);
+        // Add Transaction
+        await addDoc(collection(db, 'transactions'), newTx);
 
-        // Update Card Balances
-        if (txData.type === 'Expense') {
-            setCards(prevCards => prevCards.map(card => {
-                if (card.id === txData.cardId) {
-                    const newUsed = card.used + txData.amount;
-                    return { ...card, used: newUsed, available: card.limit - newUsed };
-                }
-                return card;
-            }));
-        }
-        // Note: If type is 'Payment' (direct payment), logic handles it similarly but usually settlements are linked to expenses. 
-        // For this simple app, we might treat 'Payment' as a credit to the card.
-        else if (txData.type === 'Payment') {
-            setCards(prevCards => prevCards.map(card => {
-                if (card.id === txData.cardId) {
-                    const newUsed = Math.max(0, card.used - txData.amount); // Prevent negative used
-                    return { ...card, used: newUsed, available: card.limit - newUsed };
-                }
-                return card;
-            }));
+        // Update Card Balance
+        const cardRef = doc(db, 'cards', txData.cardId);
+        const card = cards.find(c => c.id === txData.cardId);
+
+        if (card) {
+            if (txData.type === 'Expense') {
+                const newUsed = card.used + txData.amount;
+                await updateDoc(cardRef, {
+                    used: newUsed,
+                    available: card.limit - newUsed
+                });
+            } else if (txData.type === 'Payment') {
+                const newUsed = Math.max(0, card.used - txData.amount);
+                await updateDoc(cardRef, {
+                    used: newUsed,
+                    available: card.limit - newUsed
+                });
+            }
         }
     };
 
-    const settleTransaction = (id: string) => {
-        // Find the transaction
+    const settleTransaction = async (id: string) => {
         const tx = transactions.find(t => t.id === id);
         if (!tx || tx.status === 'Paid') return;
 
-        // Mark as Paid
-        setTransactions(prev => prev.map(t => t.id === id ? { ...t, status: 'Paid' } : t));
+        // Mark Transaction as Paid
+        const txRef = doc(db, 'transactions', id);
+        await updateDoc(txRef, { status: 'Paid' });
 
-        // Reduce the Used amount of the card (Assuming settling means paying it off back to the bank for that specific item, 
-        // OR practically, user gets money back from friend and pays the CC bill. 
-        // The requirement says: "When user collects payment back and clears the bill: Mark transaction as Paid... Update Credit Limits accordingly"
-        // So yes, it reduces the "Used" amount.
-
-        setCards(prevCards => prevCards.map(card => {
-            if (card.id === tx.cardId) {
-                const newUsed = Math.max(0, card.used - tx.amount);
-                return { ...card, used: newUsed, available: card.limit - newUsed };
-            }
-            return card;
-        }));
+        // Update Card Balance (Reduce Used Amount)
+        const card = cards.find(c => c.id === tx.cardId);
+        if (card) {
+            const cardRef = doc(db, 'cards', tx.cardId);
+            const newUsed = Math.max(0, card.used - tx.amount);
+            await updateDoc(cardRef, {
+                used: newUsed,
+                available: card.limit - newUsed
+            });
+        }
     };
 
     const getCardTransactions = (cardId: string) => {

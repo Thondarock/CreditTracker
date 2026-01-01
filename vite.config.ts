@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './', // Using relative path for easier deployment
+  base: '/CreditTracker/', // EXACT repo name required for GitHub Pages
 })
